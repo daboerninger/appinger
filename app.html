@@ -827,9 +827,9 @@ function startApp() {
     if(tPersonFilter)        visible=visible.filter(function(i){return i.assignee===tPersonFilter;});
     if(!visible.length){listEl.innerHTML='<div class="empty">'+(tPersonFilter?'Keine Aufgaben für '+esc(tPersonFilter)+'.':tFilter==='erledigt'?'Noch nichts erledigt.':'🎉 Keine offenen Aufgaben!')+'</div>';return;}
     listEl.innerHTML=visible.map(function(item){
-      var assigneeBadge = item.assignee
-        ? '<button class="passign passign-btn" data-id="'+item.id+'">👤 '+esc(item.assignee)+'</button>'
-        : '<button class="passign-add passign-btn" data-id="'+item.id+'">+ Person</button>';
+      var badge = item.assignee
+        ? '<button class="passign passign-btn">👤 '+esc(item.assignee)+'</button>'
+        : '<button class="passign-add passign-btn">+ Person</button>';
       return '<div class="item'+(item.checked?' done':'')+'" data-id="'+item.id+'">'
         +'<span class="drag-handle">☰</span>'
         +'<div class="cb"><span class="cbtick">✓</span></div>'
@@ -837,27 +837,40 @@ function startApp() {
           +'<div class="iname">'+esc(item.name)+'</div>'
           +'<div class="imeta">'
             +(item.by?'<span>von '+esc(item.by)+'</span>':'')
-            +assigneeBadge
+            +badge
           +'</div>'
         +'</div>'
-        +'<button class="idel" data-id="'+item.id+'">×</button>'
+        +'<button class="idel">×</button>'
         +'</div>';
     }).join('');
-    listEl.querySelectorAll('.item').forEach(function(el){
-      var id=el.dataset.id;
-      setupDrag(el,id,listEl);
-      el.querySelector('.cb').addEventListener('click',function(e){e.stopPropagation();if(tItems[id])db.ref('lists/'+currentListId+'/todos/'+id).update({checked:!tItems[id].checked});});
-      el.querySelector('.iinfo').addEventListener('click',function(){if(tItems[id])db.ref('lists/'+currentListId+'/todos/'+id).update({checked:!tItems[id].checked});});
-      el.querySelector('.idel').addEventListener('click',function(e){e.stopPropagation();db.ref('lists/'+currentListId+'/todos/'+id).remove();});
 
-      // Person zuweisen / wechseln
-      var pbtn = el.querySelector('.passign-btn');
-      if (pbtn) {
-        pbtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          showPersonAssignPicker(id);
-        });
-      }
+    listEl.querySelectorAll('.item').forEach(function(el){
+      var id = el.dataset.id;
+      setupDrag(el, id, listEl);
+
+      // Abhaken via Checkbox
+      el.querySelector('.cb').addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (tItems[id]) db.ref('lists/'+currentListId+'/todos/'+id).update({checked: !tItems[id].checked});
+      });
+
+      // Abhaken via Namens-Klick (nicht wenn auf Badge/Button geklickt)
+      el.querySelector('.iinfo').addEventListener('click', function(e) {
+        if (e.target.classList.contains('passign-btn') || e.target.classList.contains('passign-add')) return;
+        if (tItems[id]) db.ref('lists/'+currentListId+'/todos/'+id).update({checked: !tItems[id].checked});
+      });
+
+      // Löschen
+      el.querySelector('.idel').addEventListener('click', function(e) {
+        e.stopPropagation();
+        db.ref('lists/'+currentListId+'/todos/'+id).remove();
+      });
+
+      // Person Badge antippen
+      el.querySelector('.passign-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        showPersonAssignPicker(id);
+      });
     });
   }
 
