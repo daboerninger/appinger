@@ -141,6 +141,20 @@ header h1 { font-size: 17px; font-weight: 600; display: flex; align-items: cente
 .namebox input:focus { border-color: #4a7c59; }
 .namebox button { width: 100%; background: #4a7c59; color: #fff; border: none; border-radius: 9px; padding: 12px; font-size: 15px; font-weight: 500; cursor: pointer; }
 
+/* Person-Picker */
+.person-picker { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px 10px; background: #fafaf7; border-bottom: 1px solid #e8e8e4; align-items: center; }
+.person-picker-label { font-size: 11px; color: #aaa; width: 100%; margin-bottom: 2px; }
+.pperson { background: #fff; border: 1.5px solid #ddd; border-radius: 20px; padding: 5px 13px; font-size: 13px; cursor: pointer; color: #555; white-space: nowrap; }
+.pperson.on { background: #e8f0eb; border-color: #4a7c59; color: #4a7c59; font-weight: 500; }
+.pperson.none { border-style: dashed; }
+.pperson:active { opacity: .7; }
+.passign { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: #e8f0eb; color: #3a6248; border-radius: 10px; padding: 2px 7px; margin-top: 2px; }
+.passign.overdue { background: #fff0e8; color: #a05020; }
+
+/* Filter-Person chips */
+.chip-person { background: #f0f0eb; border: none; border-radius: 20px; padding: 5px 13px; font-size: 13px; cursor: pointer; color: #555; white-space: nowrap; }
+.chip-person.on { background: #4a7c59; color: #fff; }
+
 /* Confirm-Dialog */
 #confirmdialog { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
 #confirmdialog.show { display: flex; }
@@ -278,7 +292,11 @@ header h1 { font-size: 17px; font-weight: 600; display: flex; align-items: cente
     <input id="t-newinput" type="text" placeholder="Neue Aufgabe…">
     <button id="t-addbtn">+</button>
   </div>
-  <div class="filterbar">
+  <div class="person-picker" id="t-person-picker">
+    <div class="person-picker-label">Zuständig:</div>
+    <button class="pperson none on" data-p="">Niemand</button>
+  </div>
+  <div class="filterbar" id="t-filterbar">
     <button class="chip on" data-tf="alle">Alle</button>
     <button class="chip" data-tf="offen">Offen</button>
     <button class="chip" data-tf="erledigt">Erledigt</button>
@@ -358,6 +376,24 @@ function startApp() {
   var eItems = {}, eStamm = {}, eFilter = 'alle', eTab = 'items';
   var tItems = {}, tFilter = 'alle';
   var dragId = null, dragOver = null;
+  var persons = {};        // id -> {name}
+  var selectedPerson = ''; // aktuell ausgewählte Person beim Hinzufügen
+  var tPersonFilter = '';  // Personenfilter in Todo-Liste
+  var personsRef = db.ref('persons');
+
+  personsRef.on('value', function(snap) {
+    persons = snap.val() || {};
+  });
+
+  function getPersonNames() {
+    return Object.values(persons).map(function(p) { return p.name; });
+  }
+
+  function ensurePerson(name) {
+    if (!name) return;
+    var exists = Object.values(persons).some(function(p) { return p.name.toLowerCase() === name.toLowerCase(); });
+    if (!exists) personsRef.push({ name: name });
+  }
 
   // Listener-Cleanup
   var unsubItems = null, unsubStamm = null;
@@ -668,16 +704,17 @@ function startApp() {
      TO-DO LISTE
      ================================================== */
   function openTodo(listId) {
-    tFilter = 'alle';
+    tFilter = 'alle'; tPersonFilter = ''; selectedPerson = '';
     document.getElementById('clearbtn').style.display = '';
     document.getElementById('resetbtn').style.display = '';
     document.getElementById('stammbtn').style.display = 'none';
 
     if (unsubItems) unsubItems();
     var todosRef = db.ref('lists/'+listId+'/todos');
-    var offTodos = todosRef.on('value', function(s) { tItems=s.val()||{}; renderTList(); });
+    var offTodos = todosRef.on('value', function(s) { tItems=s.val()||{}; renderTList(); renderPersonPicker(); renderPersonFilterChips(); });
     unsubItems = function() { todosRef.off('value', offTodos); };
 
+    // Status-Filter
     document.querySelectorAll('[data-tf]').forEach(function(c){
       c.onclick=function(){
         tFilter=this.dataset.tf;
@@ -706,6 +743,59 @@ function startApp() {
       dotSync(); db.ref('/').update(u);
       showToast('Alle zurückgesetzt');
     };
+
+    renderPersonPicker();
+    renderPersonFilterChips();
+  }
+
+  function renderPersonPicker() {
+    var picker = document.getElementById('t-person-picker');
+    var names = getPersonNames();
+    var html = '<div class="person-picker-label">Zuständig:</div>'
+      + '<button class="pperson none'+(selectedPerson===''?' on':'')+'" data-p="">Niemand</button>';
+    names.forEach(function(n) {
+      html += '<button class="pperson'+(selectedPerson===n?' on':'')+'" data-p="'+esc(n)+'">'+esc(n)+'</button>';
+    });
+    // "+" Button für neue Person
+    html += '<button class="pperson none" id="pp-new">+ Person</button>';
+    picker.innerHTML = html;
+
+    picker.querySelectorAll('.pperson').forEach(function(btn) {
+      if (btn.id === 'pp-new') {
+        btn.onclick = function() {
+          var name = prompt('Name der Person:');
+          if (!name || !name.trim()) return;
+          name = name.trim();
+          ensurePerson(name);
+          selectedPerson = name;
+          renderPersonPicker();
+        };
+        return;
+      }
+      btn.onclick = function() {
+        selectedPerson = this.dataset.p;
+        picker.querySelectorAll('.pperson').forEach(function(b) { b.classList.remove('on'); });
+        this.classList.add('on');
+      };
+    });
+  }
+
+  function renderPersonFilterChips() {
+    var filterbar = document.getElementById('t-filterbar');
+    // Bestehende Person-Chips entfernen
+    filterbar.querySelectorAll('.chip-person').forEach(function(c) { c.remove(); });
+    var names = getPersonNames();
+    names.forEach(function(n) {
+      var btn = document.createElement('button');
+      btn.className = 'chip-person' + (tPersonFilter === n ? ' on' : '');
+      btn.textContent = '👤 ' + n;
+      btn.onclick = function() {
+        tPersonFilter = (tPersonFilter === n) ? '' : n;
+        renderPersonFilterChips();
+        renderTList();
+      };
+      filterbar.appendChild(btn);
+    });
   }
 
   function addTItem(listId) {
@@ -713,8 +803,9 @@ function startApp() {
     if (!name) return;
     var minOrder=0;
     Object.values(tItems).forEach(function(t){if((t.order||0)<minOrder)minOrder=(t.order||0);});
+    if (selectedPerson) ensurePerson(selectedPerson);
     dotSync();
-    db.ref('lists/'+listId+'/todos').push({name:name,checked:false,by:myName,order:minOrder-1,ts:Date.now()});
+    db.ref('lists/'+listId+'/todos').push({name:name, checked:false, by:myName, assignee: selectedPerson||'', order:minOrder-1, ts:Date.now()});
     document.getElementById('t-newinput').value='';
     document.getElementById('t-newinput').focus();
   }
@@ -729,14 +820,18 @@ function startApp() {
     var visible=all;
     if(tFilter==='offen')    visible=all.filter(function(i){return !i.checked;});
     if(tFilter==='erledigt') visible=all.filter(function(i){return  i.checked;});
-    if(!visible.length){listEl.innerHTML='<div class="empty">'+(tFilter==='erledigt'?'Noch nichts erledigt.':'🎉 Keine offenen Aufgaben!')+'</div>';return;}
+    if(tPersonFilter)        visible=visible.filter(function(i){return i.assignee===tPersonFilter;});
+    if(!visible.length){listEl.innerHTML='<div class="empty">'+(tPersonFilter?'Keine Aufgaben für '+esc(tPersonFilter)+'.':tFilter==='erledigt'?'Noch nichts erledigt.':'🎉 Keine offenen Aufgaben!')+'</div>';return;}
     listEl.innerHTML=visible.map(function(item){
+      var assigneeBadge = item.assignee ? '<span class="passign">👤 '+esc(item.assignee)+'</span>' : '';
       return '<div class="item'+(item.checked?' done':'')+'" data-id="'+item.id+'">'
         +'<span class="drag-handle">☰</span>'
         +'<div class="cb"><span class="cbtick">✓</span></div>'
         +'<div class="iinfo"><div class="iname">'+esc(item.name)+'</div>'
-        +(item.by?'<div class="imeta">von '+esc(item.by)+'</div>':'')
-        +'</div>'
+        +'<div class="imeta">'
+        +(item.by?'<span>von '+esc(item.by)+'</span>':'')
+        +assigneeBadge
+        +'</div></div>'
         +'<button class="idel" data-id="'+item.id+'">×</button>'
         +'</div>';
     }).join('');
