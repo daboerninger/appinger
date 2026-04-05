@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meine Listen</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; max-width: 480px; margin: 0 auto; min-height: 100vh; }
+
+/* --- Header --- */
+header { background: #fff; border-bottom: 1px solid #e8e8e4; padding: 14px 16px; position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+header h1 { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; transition: background .3s; }
+.dot.on { background: #4a7c59; }
+.dot.sync { background: #f0a500; }
+.hbtns { display: flex; gap: 6px; }
+.hbtn { background: none; border: 1px solid #ddd; border-radius: 8px; padding: 5px 9px; font-size: 12px; cursor: pointer; color: #555; white-space: nowrap; }
+.hbtn.blue { background: #e8f0eb; border-color: #b8d4c0; color: #4a7c59; font-weight: 500; }
+.hbtn:active { opacity: .7; }
+.back-btn { background: none; border: none; font-size: 22px; cursor: pointer; padding: 0 6px 0 0; color: #555; line-height: 1; }
+
+/* --- Seiten --- */
+.page { display: none; }
+.page.active { display: block; }
+
+/* === STARTSEITE === */
+.home-grid { padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.list-card { background: #fff; border-radius: 14px; border: 1px solid #e8e8e4; padding: 18px 16px; cursor: pointer; position: relative; transition: transform .1s; }
+.list-card:active { transform: scale(.97); }
+.list-card .card-icon { font-size: 28px; margin-bottom: 8px; }
+.list-card .card-name { font-size: 15px; font-weight: 500; }
+.list-card .card-type { font-size: 11px; color: #bbb; margin-top: 3px; }
+.list-card .card-count { font-size: 11px; color: #4a7c59; margin-top: 6px; font-weight: 500; }
+.list-card .card-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #ddd; font-size: 18px; cursor: pointer; padding: 2px 5px; border-radius: 6px; line-height: 1; }
+.list-card .card-del:active { color: #e44; }
+
+.add-card { background: #fafaf7; border: 1.5px dashed #ddd; border-radius: 14px; padding: 18px 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 100px; color: #bbb; font-size: 13px; }
+.add-card:active { background: #f0f0eb; }
+.add-card span { font-size: 24px; }
+
+/* --- Neue Liste Modal --- */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: flex-end; justify-content: center; }
+.overlay.open { display: flex; }
+.modal { background: #fff; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 480px; }
+.modal h2 { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+.modal label { font-size: 12px; color: #999; display: block; margin-bottom: 5px; margin-top: 12px; }
+.modal input { width: 100%; border: 1px solid #ddd; border-radius: 9px; padding: 10px 12px; font-size: 15px; outline: none; }
+.modal input:focus { border-color: #4a7c59; }
+.emoji-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.emoji-btn { font-size: 22px; background: #f5f5f0; border: 2px solid transparent; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+.emoji-btn.on { border-color: #4a7c59; background: #e8f0eb; }
+.type-grid { display: flex; gap: 8px; margin-top: 6px; }
+.type-btn { flex: 1; padding: 10px; border: 1.5px solid #ddd; border-radius: 10px; background: #fff; cursor: pointer; font-size: 13px; text-align: center; }
+.type-btn.on { border-color: #4a7c59; background: #e8f0eb; color: #4a7c59; font-weight: 500; }
+.modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.modal-actions button { flex: 1; padding: 12px; border-radius: 10px; font-size: 15px; cursor: pointer; border: none; }
+.btn-cancel { background: #f0f0eb; color: #555; }
+.btn-ok { background: #4a7c59; color: #fff; font-weight: 500; }
+
+/* === LISTEN-ANSICHT === */
+.addbar { display: flex; gap: 8px; padding: 10px 14px; background: #fff; border-bottom: 1px solid #e8e8e4; }
+.addbar input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 9px 11px; font-size: 15px; outline: none; min-width: 0; }
+.addbar input:focus { border-color: #4a7c59; }
+.addbar select { border: 1px solid #ddd; border-radius: 8px; padding: 9px 6px; font-size: 14px; background: #fff; color: #444; outline: none; }
+.addbar button { background: #4a7c59; color: #fff; border: none; border-radius: 8px; padding: 9px 14px; font-size: 18px; cursor: pointer; line-height: 1; }
+.addbar button:active { background: #3a6248; }
+
+/* Stamm-Panel */
+.stammpanel { display: none; padding: 10px 14px 12px; background: #fafaf7; border-bottom: 1px solid #e8e8e4; }
+.stammpanel.open { display: block; }
+.stammpanel p { font-size: 11px; color: #aaa; margin-bottom: 8px; }
+.stammgrid { display: flex; flex-wrap: wrap; gap: 6px; }
+.sitem { background: #fff; border: 1px solid #ddd; border-radius: 20px; padding: 5px 13px; font-size: 14px; cursor: pointer; color: #333; }
+.sitem:active { background: #e8f0eb; border-color: #4a7c59; color: #4a7c59; }
+.sitem.grey { opacity: .3; pointer-events: none; }
+
+/* Stamm-Tab */
+.tabs { display: flex; background: #fff; border-bottom: 1px solid #e8e8e4; }
+.tab { flex: 1; padding: 10px; font-size: 13px; text-align: center; cursor: pointer; color: #888; border: none; background: none; border-bottom: 2px solid transparent; }
+.tab.on { color: #4a7c59; border-bottom-color: #4a7c59; font-weight: 500; }
+
+/* Stamm-Verwaltung */
+.stamm-page { padding: 0 0 90px; }
+.stamm-hint { padding: 10px 18px; font-size: 12px; color: #bbb; background: #fafaf7; border-bottom: 1px solid #e8e8e4; }
+.slist-item { display: flex; align-items: center; gap: 11px; padding: 12px 18px; background: #fff; border-bottom: .5px solid #f0f0ec; }
+.slist-icon { font-size: 18px; }
+.slist-info { flex: 1; }
+.slist-name { font-size: 15px; }
+.slist-cat { font-size: 12px; color: #aaa; }
+.slist-add { background: none; border: 1px solid #b8d4c0; border-radius: 8px; color: #4a7c59; font-size: 13px; cursor: pointer; padding: 4px 10px; white-space: nowrap; }
+.slist-del { background: none; border: none; color: #ccc; font-size: 20px; cursor: pointer; padding: 3px 6px; line-height: 1; }
+
+/* Filter */
+.filterbar { display: flex; gap: 6px; padding: 9px 14px; background: #fff; border-bottom: 1px solid #e8e8e4; overflow-x: auto; scrollbar-width: none; }
+.filterbar::-webkit-scrollbar { display: none; }
+.chip { background: #f0f0eb; border: none; border-radius: 20px; padding: 5px 13px; font-size: 13px; cursor: pointer; color: #555; white-space: nowrap; }
+.chip.on { background: #4a7c59; color: #fff; }
+
+/* Drag hint */
+.drag-hint { text-align: center; padding: 6px; font-size: 11px; color: #bbb; background: #fafaf7; border-bottom: 1px solid #e8e8e4; }
+
+/* Liste */
+.list { padding: 6px 0 90px; }
+.catheader { padding: 10px 18px 3px; font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: .06em; display: flex; justify-content: space-between; background: #f5f5f0; }
+.item { display: flex; align-items: center; gap: 11px; padding: 11px 14px 11px 8px; background: #fff; border-bottom: .5px solid #f0f0ec; user-select: none; transition: opacity .15s; }
+.item:active { background: #f8f8f5; }
+.item.done { opacity: .4; }
+.item.done .iname { text-decoration: line-through; color: #aaa; }
+.item.dragging { opacity: .35; background: #f0f0eb; }
+.item.drag-over { border-top: 2px solid #4a7c59; }
+.drag-handle { color: #ccc; font-size: 18px; padding: 4px 6px; cursor: grab; flex-shrink: 0; touch-action: none; line-height: 1; }
+.drag-handle:active { cursor: grabbing; }
+.cb { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ccc; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; }
+.todo-mode .cb { border-radius: 6px; }
+.item.done .cb { background: #4a7c59; border-color: #4a7c59; }
+.cbtick { display: none; color: #fff; font-size: 12px; font-weight: 700; }
+.item.done .cbtick { display: block; }
+.iinfo { flex: 1; min-width: 0; cursor: pointer; }
+.iname { font-size: 15px; }
+.imeta { font-size: 11px; color: #bbb; margin-top: 2px; }
+.ibtns { display: flex; gap: 4px; align-items: center; }
+.istar { background: none; border: none; font-size: 16px; cursor: pointer; padding: 3px 4px; line-height: 1; opacity: .25; flex-shrink: 0; }
+.istar.on { opacity: 1; }
+.idel { background: none; border: none; color: #ccc; font-size: 20px; cursor: pointer; padding: 3px 5px; border-radius: 6px; line-height: 1; flex-shrink: 0; }
+.idel:active { color: #e44; }
+
+.empty { text-align: center; padding: 50px 20px; color: #ccc; font-size: 15px; line-height: 1.6; }
+
+/* Toast */
+.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 9px 18px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 999; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+/* Name-Dialog */
+#namedialog { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+#namedialog.show { display: flex; }
+.namebox { background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 320px; }
+.namebox h2 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+.namebox p { font-size: 13px; color: #888; margin-bottom: 16px; }
+.namebox input { width: 100%; border: 1px solid #ddd; border-radius: 9px; padding: 11px 13px; font-size: 15px; outline: none; margin-bottom: 12px; }
+.namebox input:focus { border-color: #4a7c59; }
+.namebox button { width: 100%; background: #4a7c59; color: #fff; border: none; border-radius: 9px; padding: 12px; font-size: 15px; font-weight: 500; cursor: pointer; }
+
+/* Confirm-Dialog */
+#confirmdialog { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+#confirmdialog.show { display: flex; }
+.confirmbox { background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 300px; }
+.confirmbox h2 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.confirmbox p { font-size: 13px; color: #888; margin-bottom: 18px; }
+.confirmbox .actions { display: flex; gap: 8px; }
+.confirmbox .actions button { flex: 1; padding: 11px; border-radius: 9px; font-size: 14px; cursor: pointer; border: none; }
+.btn-no  { background: #f0f0eb; color: #555; }
+.btn-yes { background: #e44; color: #fff; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- Name-Dialog -->
+<div id="namedialog">
+  <div class="namebox">
+    <h2>Wer bist du?</h2>
+    <p>Einmalig – damit die andere Person sieht wer etwas hinzugefügt hat.</p>
+    <input id="nameinput" type="text" placeholder="z.B. Daniel" maxlength="20">
+    <button id="namebtn">Los geht's</button>
+  </div>
+</div>
+
+<!-- Confirm-Dialog -->
+<div id="confirmdialog">
+  <div class="confirmbox">
+    <h2>Liste löschen?</h2>
+    <p id="confirm-text"></p>
+    <div class="actions">
+      <button class="btn-no" id="confirm-no">Abbrechen</button>
+      <button class="btn-yes" id="confirm-yes">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Neue Liste Modal -->
+<div class="overlay" id="newListOverlay">
+  <div class="modal">
+    <h2>Neue Liste</h2>
+    <label>Name</label>
+    <input id="nl-name" type="text" placeholder="z.B. Urlaub Kroatien" maxlength="30">
+    <label>Symbol</label>
+    <div class="emoji-grid" id="nl-emojis"></div>
+    <label>Typ</label>
+    <div class="type-grid">
+      <button class="type-btn on" data-t="einkauf">🛒 Einkaufsliste</button>
+      <button class="type-btn" data-t="todo">✅ To-do Liste</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="nl-cancel">Abbrechen</button>
+      <button class="btn-ok" id="nl-ok">Erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <h1 id="header-title">📋 Meine Listen <span class="dot" id="dot"></span></h1>
+  <div class="hbtns" id="header-btns">
+    <button class="hbtn blue" id="stammbtn" style="display:none">⭐ Stamm</button>
+    <button class="hbtn" id="clearbtn" style="display:none">✓ löschen</button>
+    <button class="hbtn" id="resetbtn" style="display:none">↺</button>
+  </div>
+</header>
+
+<!-- STARTSEITE -->
+<div class="page active" id="page-home">
+  <div class="home-grid" id="home-grid">
+    <div class="empty" style="grid-column:1/-1">Verbinde…</div>
+  </div>
+</div>
+
+<!-- LISTEN-ANSICHT (Einkauf) -->
+<div class="page" id="page-einkauf">
+  <div class="tabs" id="einkauf-tabs">
+    <button class="tab on" data-tab="items">🛒 Liste</button>
+    <button class="tab" data-tab="stamm">⭐ Stamm</button>
+  </div>
+  <!-- Items-Tab -->
+  <div id="einkauf-items-view">
+    <div class="addbar">
+      <input id="e-newinput" type="text" placeholder="Artikel hinzufügen…">
+      <select id="e-newcat">
+        <option value="Obst & Gemüse">🥦</option>
+        <option value="Milch & Käse">🧀</option>
+        <option value="Wurst & Aufschnitt">🥩</option>
+        <option value="Brot & Backwaren">🍞</option>
+        <option value="Tiefkühl">❄️</option>
+        <option value="Getränke">🥤</option>
+        <option value="Vorräte">🥫</option>
+        <option value="Reinigung">🧹</option>
+        <option value="Hygiene">🧴</option>
+        <option value="Sonstiges">📦</option>
+      </select>
+      <button id="e-addbtn">+</button>
+    </div>
+    <div class="stammpanel" id="e-stammpanel">
+      <p>Tippe einen Artikel um ihn zur Liste hinzuzufügen:</p>
+      <div class="stammgrid" id="e-stammgrid"></div>
+    </div>
+    <div class="filterbar">
+      <button class="chip on" data-ef="alle">Alle</button>
+      <button class="chip" data-ef="offen">Offen</button>
+      <button class="chip" data-ef="erledigt">Erledigt</button>
+    </div>
+    <div class="list" id="e-list"><div class="empty">Lade…</div></div>
+  </div>
+  <!-- Stamm-Tab -->
+  <div id="einkauf-stamm-view" style="display:none">
+    <div class="addbar">
+      <input id="es-newinput" type="text" placeholder="Neuer Stammartikel…">
+      <select id="es-newcat">
+        <option value="Obst & Gemüse">🥦</option>
+        <option value="Milch & Käse">🧀</option>
+        <option value="Wurst & Aufschnitt">🥩</option>
+        <option value="Brot & Backwaren">🍞</option>
+        <option value="Tiefkühl">❄️</option>
+        <option value="Getränke">🥤</option>
+        <option value="Vorräte">🥫</option>
+        <option value="Reinigung">🧹</option>
+        <option value="Hygiene">🧴</option>
+        <option value="Sonstiges">📦</option>
+      </select>
+      <button id="es-addbtn">+</button>
+    </div>
+    <div class="stamm-hint">⭐ in der Liste antippen um Artikel als Stammartikel zu speichern.</div>
+    <div class="stamm-page" id="es-list"></div>
+  </div>
+</div>
+
+<!-- LISTEN-ANSICHT (Todo) -->
+<div class="page" id="page-todo">
+  <div class="addbar">
+    <input id="t-newinput" type="text" placeholder="Neue Aufgabe…">
+    <button id="t-addbtn">+</button>
+  </div>
+  <div class="filterbar">
+    <button class="chip on" data-tf="alle">Alle</button>
+    <button class="chip" data-tf="offen">Offen</button>
+    <button class="chip" data-tf="erledigt">Erledigt</button>
+  </div>
+  <div class="drag-hint">☰ gedrückt halten und ziehen um Reihenfolge zu ändern</div>
+  <div class="list todo-mode" id="t-list"><div class="empty">Lade…</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================================================
+   NAME-DIALOG – sofort, unabhängig von Firebase
+   =================================================== */
+var myName = localStorage.getItem('app_name') || '';
+var dlg = document.getElementById('namedialog');
+if (!myName) {
+  dlg.classList.add('show');
+  setTimeout(function() { document.getElementById('nameinput').focus(); }, 50);
+}
+document.getElementById('namebtn').addEventListener('click', function() {
+  var v = document.getElementById('nameinput').value.trim();
+  if (!v) return;
+  myName = v;
+  localStorage.setItem('app_name', v);
+  dlg.classList.remove('show');
+});
+document.getElementById('nameinput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('namebtn').click();
+});
+
+/* ===================================================
+   FIREBASE
+   =================================================== */
+function loadScript(src, cb) {
+  var s = document.createElement('script');
+  s.src = src; s.onload = cb;
+  s.onerror = function() { showToast('⚠️ Netzwerkfehler'); };
+  document.head.appendChild(s);
+}
+loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js', function() {
+  loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js', startApp);
+});
+
+function startApp() {
+  firebase.initializeApp({
+    apiKey: "AIzaSyDlw38wj8pf2qy72uvUSJfNweEOaZhDOw4",
+    authDomain: "einkaufsliste-boerninger.firebaseapp.com",
+    databaseURL: "https://einkaufsliste-boerninger-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "einkaufsliste-boerninger",
+    storageBucket: "einkaufsliste-boerninger.firebasestorage.app",
+    messagingSenderId: "344173366288",
+    appId: "1:344173666288:web:499be2eef6da3ed4e60735"
+  });
+  var db = firebase.database();
+  var listsRef = db.ref('lists');
+
+  var dot = document.getElementById('dot');
+  function dotOn()   { dot.className = 'dot on'; }
+  function dotSync() { dot.className = 'dot sync'; }
+
+  /* ---- Kategorien ---- */
+  var CAT_ORDER = ['Obst & Gemüse','Milch & Käse','Wurst & Aufschnitt','Brot & Backwaren','Tiefkühl','Getränke','Vorräte','Reinigung','Hygiene','Sonstiges'];
+  var CAT_ICON  = {'Obst & Gemüse':'🥦','Milch & Käse':'🧀','Wurst & Aufschnitt':'🥩','Brot & Backwaren':'🍞','Tiefkühl':'❄️','Getränke':'🥤','Vorräte':'🥫','Reinigung':'🧹','Hygiene':'🧴','Sonstiges':'📦'};
+  var DEFAULT_STAMM = [
+    {name:'Bananen',cat:'Obst & Gemüse'},{name:'Milch',cat:'Milch & Käse'},
+    {name:'Butter',cat:'Milch & Käse'},{name:'Käse',cat:'Milch & Käse'},
+    {name:'Schinken',cat:'Wurst & Aufschnitt'},{name:'Toastbrot',cat:'Brot & Backwaren'},
+    {name:'Kräutertee',cat:'Vorräte'},{name:'Honig',cat:'Vorräte'}
+  ];
+  var EMOJIS = ['🛒','✅','🏠','🏖️','🚗','🌿','🔧','📋','🎄','🎉','💊','📚','🐶','🏋️'];
+
+  /* ---- State ---- */
+  var allLists   = {};
+  var currentListId   = null;
+  var currentListType = null;
+  var eItems = {}, eStamm = {}, eFilter = 'alle', eTab = 'items';
+  var tItems = {}, tFilter = 'alle';
+  var dragId = null, dragOver = null;
+
+  // Listener-Cleanup
+  var unsubItems = null, unsubStamm = null;
+
+  /* ---- Default-Listen anlegen falls leer ---- */
+  listsRef.once('value', function(snap) {
+    if (!snap.val()) {
+      listsRef.push({name:'Wocheneinkauf', icon:'🛒', type:'einkauf', ts: Date.now()});
+      listsRef.push({name:'To-do Haus',    icon:'🏠', type:'todo',    ts: Date.now()+1});
+      listsRef.push({name:'To-do Urlaub',  icon:'🏖️', type:'todo',    ts: Date.now()+2});
+    }
+  });
+
+  /* ---- Listen-Übersicht ---- */
+  listsRef.on('value', function(snap) {
+    allLists = snap.val() || {};
+    dotOn();
+    if (currentListId === null) renderHome();
+  });
+
+  function renderHome() {
+    var grid = document.getElementById('home-grid');
+    var arr = Object.keys(allLists).map(function(id) { return Object.assign({id:id}, allLists[id]); });
+    arr.sort(function(a,b) { return (a.ts||0)-(b.ts||0); });
+
+    var html = arr.map(function(l) {
+      // Offene Einträge zählen
+      return '<div class="list-card" data-id="'+l.id+'">'
+        +'<button class="card-del" data-id="'+l.id+'">×</button>'
+        +'<div class="card-icon">'+esc(l.icon||'📋')+'</div>'
+        +'<div class="card-name">'+esc(l.name)+'</div>'
+        +'<div class="card-type">'+(l.type==='einkauf'?'🛒 Einkaufsliste':'✅ To-do Liste')+'</div>'
+        +'<div class="card-count" id="count-'+l.id+'">lädt…</div>'
+        +'</div>';
+    }).join('');
+    html += '<div class="add-card" id="add-card-btn"><span>+</span>Neue Liste</div>';
+    grid.innerHTML = html;
+
+    // Offene Items live zählen
+    arr.forEach(function(l) {
+      var ref = db.ref('lists/'+l.id+(l.type==='einkauf'?'/items':'/todos'));
+      ref.on('value', function(s) {
+        var data = s.val() || {};
+        var open = Object.values(data).filter(function(i) { return !i.checked; }).length;
+        var el = document.getElementById('count-'+l.id);
+        if (el) el.textContent = open ? open+' offen' : '✓ Alles erledigt';
+      });
+    });
+
+    grid.querySelectorAll('.list-card').forEach(function(card) {
+      card.addEventListener('click', function(e) {
+        if (e.target.classList.contains('card-del')) return;
+        openList(this.dataset.id);
+      });
+    });
+    grid.querySelectorAll('.card-del').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        confirmDelete(this.dataset.id);
+      });
+    });
+    document.getElementById('add-card-btn').addEventListener('click', openNewListModal);
+  }
+
+  /* ---- Liste öffnen ---- */
+  function openList(id) {
+    var l = allLists[id];
+    if (!l) return;
+    currentListId   = id;
+    currentListType = l.type;
+
+    // Header
+    document.getElementById('header-title').innerHTML = '<button class="back-btn" id="backbtn">‹</button> '+esc(l.icon||'')+'&nbsp;'+esc(l.name)+' <span class="dot '+(dot.className.includes('on')?'on':'')+ '" id="dot"></span>';
+    document.getElementById('backbtn').addEventListener('click', goHome);
+
+    showPage(l.type === 'einkauf' ? 'page-einkauf' : 'page-todo');
+
+    if (l.type === 'einkauf') {
+      openEinkauf(id);
+    } else {
+      openTodo(id);
+    }
+  }
+
+  function goHome() {
+    currentListId = null; currentListType = null;
+    if (unsubItems) { unsubItems(); unsubItems = null; }
+    if (unsubStamm) { unsubStamm(); unsubStamm = null; }
+    document.getElementById('header-title').innerHTML = '📋 Meine Listen <span class="dot on" id="dot"></span>';
+    ['stammbtn','clearbtn','resetbtn'].forEach(function(id) {
+      document.getElementById(id).style.display = 'none';
+    });
+    showPage('page-home');
+    renderHome();
+  }
+
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+  }
+
+  /* ==================================================
+     EINKAUFSLISTE
+     ================================================== */
+  function openEinkauf(listId) {
+    eFilter = 'alle'; eTab = 'items';
+    document.getElementById('clearbtn').style.display = '';
+    document.getElementById('resetbtn').style.display = '';
+    document.getElementById('stammbtn').style.display = '';
+
+    // Stamm prüfen & Default anlegen
+    var stammRef = db.ref('lists/'+listId+'/stamm');
+    stammRef.once('value', function(s) {
+      if (!s.val()) DEFAULT_STAMM.forEach(function(a) { stammRef.push(a); });
+    });
+
+    // Listener
+    if (unsubItems) unsubItems();
+    if (unsubStamm) unsubStamm();
+    var itemsRef = db.ref('lists/'+listId+'/items');
+    var offItems = itemsRef.on('value', function(s) { eItems = s.val()||{}; renderEList(); renderStammPanel(); });
+    var offStamm = stammRef.on('value',  function(s) { eStamm = s.val()||{}; renderStammPanel(); renderStammPage(); });
+    unsubItems = function() { itemsRef.off('value', offItems); };
+    unsubStamm = function() { stammRef.off('value', offStamm); };
+
+    // Tabs
+    document.querySelectorAll('.tab').forEach(function(t) {
+      t.onclick = function() {
+        eTab = this.dataset.tab;
+        document.querySelectorAll('.tab').forEach(function(x) { x.classList.remove('on'); });
+        this.classList.add('on');
+        document.getElementById('einkauf-items-view').style.display = eTab==='items' ? '' : 'none';
+        document.getElementById('einkauf-stamm-view').style.display = eTab==='stamm' ? '' : 'none';
+        document.getElementById('stammbtn').style.display = eTab==='items' ? '' : 'none';
+        document.getElementById('clearbtn').style.display = eTab==='items' ? '' : 'none';
+        document.getElementById('resetbtn').style.display = eTab==='items' ? '' : 'none';
+      };
+    });
+    document.getElementById('einkauf-items-view').style.display = '';
+    document.getElementById('einkauf-stamm-view').style.display = 'none';
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('on'); });
+    document.querySelector('.tab[data-tab="items"]').classList.add('on');
+
+    // Filter
+    document.querySelectorAll('[data-ef]').forEach(function(c) {
+      c.onclick = function() {
+        eFilter = this.dataset.ef;
+        document.querySelectorAll('[data-ef]').forEach(function(x) { x.classList.remove('on'); });
+        this.classList.add('on');
+        renderEList();
+      };
+    });
+    document.querySelectorAll('[data-ef]').forEach(function(c) { c.classList.remove('on'); });
+    document.querySelector('[data-ef="alle"]').classList.add('on');
+
+    // Stamm-Panel
+    document.getElementById('stammbtn').onclick = function() {
+      document.getElementById('e-stammpanel').classList.toggle('open');
+    };
+
+    // Artikel hinzufügen
+    document.getElementById('e-addbtn').onclick = function() { addEItem(listId); };
+    document.getElementById('e-newinput').onkeydown = function(e) { if(e.key==='Enter') addEItem(listId); };
+
+    // Header-Buttons
+    document.getElementById('clearbtn').onclick = function() {
+      var del = Object.keys(eItems).filter(function(k) { return eItems[k].checked; });
+      if (!del.length) { showToast('Keine erledigten Artikel'); return; }
+      var u = {};
+      del.forEach(function(k) { u['lists/'+listId+'/items/'+k] = null; });
+      dotSync(); db.ref('/').update(u);
+      showToast(del.length+' Artikel gelöscht');
+    };
+    document.getElementById('resetbtn').onclick = function() {
+      var u = {};
+      Object.keys(eItems).forEach(function(k) { u['lists/'+listId+'/items/'+k+'/checked'] = false; });
+      dotSync(); db.ref('/').update(u);
+      showToast('Alle zurückgesetzt');
+    };
+
+    // Stamm-Tab: hinzufügen
+    document.getElementById('es-addbtn').onclick = function() { addStammArtikel(listId); };
+    document.getElementById('es-newinput').onkeydown = function(e) { if(e.key==='Enter') addStammArtikel(listId); };
+  }
+
+  function addEItem(listId) {
+    var name = document.getElementById('e-newinput').value.trim();
+    if (!name) return;
+    dotSync();
+    db.ref('lists/'+listId+'/items').push({name:name, cat:document.getElementById('e-newcat').value, checked:false, by:myName, ts:Date.now()});
+    document.getElementById('e-newinput').value = '';
+    document.getElementById('e-newinput').focus();
+  }
+
+  function addStammArtikel(listId) {
+    var name = document.getElementById('es-newinput').value.trim();
+    if (!name) return;
+    var exists = Object.values(eStamm).some(function(s) { return s.name.toLowerCase()===name.toLowerCase(); });
+    if (exists) { showToast('"'+name+'" ist bereits ein Stammartikel'); return; }
+    dotSync();
+    db.ref('lists/'+listId+'/stamm').push({name:name, cat:document.getElementById('es-newcat').value});
+    document.getElementById('es-newinput').value = '';
+    showToast('"'+name+'" gespeichert');
+  }
+
+  function renderStammPanel() {
+    var active = Object.values(eItems).filter(function(i){return !i.checked;}).map(function(i){return i.name.toLowerCase();});
+    var arr = Object.keys(eStamm).map(function(id){return Object.assign({id:id},eStamm[id]);});
+    arr.sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+    if (!arr.length) {
+      document.getElementById('e-stammgrid').innerHTML = '<span style="font-size:13px;color:#bbb">Noch keine Stammartikel.</span>';
+      return;
+    }
+    document.getElementById('e-stammgrid').innerHTML = arr.map(function(a){
+      var grey = active.indexOf((a.name||'').toLowerCase())!==-1?' grey':'';
+      return '<button class="sitem'+grey+'" data-name="'+esc(a.name)+'" data-cat="'+esc(a.cat)+'">'+esc(a.name)+'</button>';
+    }).join('');
+    document.querySelectorAll('#e-stammgrid .sitem').forEach(function(btn){
+      btn.onclick = function(){
+        dotSync();
+        db.ref('lists/'+currentListId+'/items').push({name:this.dataset.name, cat:this.dataset.cat, checked:false, by:myName, ts:Date.now()});
+        showToast('"'+this.dataset.name+'" hinzugefügt');
+      };
+    });
+  }
+
+  function renderStammPage() {
+    var el = document.getElementById('es-list');
+    var arr = Object.keys(eStamm).map(function(id){return Object.assign({id:id},eStamm[id]);});
+    arr.sort(function(a,b){
+      var oa=CAT_ORDER.indexOf(a.cat), ob=CAT_ORDER.indexOf(b.cat);
+      return oa!==ob ? oa-ob : (a.name||'').localeCompare(b.name||'');
+    });
+    if (!arr.length) { el.innerHTML='<div class="empty">Noch keine Stammartikel.</div>'; return; }
+    el.innerHTML = arr.map(function(a){
+      return '<div class="slist-item">'
+        +'<span class="slist-icon">'+(CAT_ICON[a.cat]||'📦')+'</span>'
+        +'<div class="slist-info"><div class="slist-name">'+esc(a.name)+'</div><div class="slist-cat">'+esc(a.cat)+'</div></div>'
+        +'<button class="slist-add" data-id="'+a.id+'" data-name="'+esc(a.name)+'" data-cat="'+esc(a.cat)+'">+ Liste</button>'
+        +'<button class="slist-del" data-id="'+a.id+'">×</button>'
+        +'</div>';
+    }).join('');
+    el.querySelectorAll('.slist-add').forEach(function(btn){
+      btn.onclick = function(){
+        dotSync();
+        db.ref('lists/'+currentListId+'/items').push({name:this.dataset.name, cat:this.dataset.cat, checked:false, by:myName, ts:Date.now()});
+        showToast('"'+this.dataset.name+'" zur Liste hinzugefügt');
+      };
+    });
+    el.querySelectorAll('.slist-del').forEach(function(btn){
+      btn.onclick = function(){
+        var name = eStamm[this.dataset.id]?eStamm[this.dataset.id].name:'';
+        dotSync(); db.ref('lists/'+currentListId+'/stamm/'+this.dataset.id).remove();
+        showToast('"'+name+'" entfernt');
+      };
+    });
+  }
+
+  function renderEList() {
+    var listEl = document.getElementById('e-list');
+    var all = Object.keys(eItems).map(function(id){return Object.assign({id:id},eItems[id]);}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});
+    var visible = all;
+    if (eFilter==='offen')    visible=all.filter(function(i){return !i.checked;});
+    if (eFilter==='erledigt') visible=all.filter(function(i){return  i.checked;});
+    if (!visible.length) { listEl.innerHTML='<div class="empty">'+(eFilter==='erledigt'?'Noch nichts erledigt.':'🎉 Alles eingekauft!')+'</div>'; return; }
+    var bycat={};
+    visible.forEach(function(item){(bycat[item.cat]=bycat[item.cat]||[]).push(item);});
+    var order=CAT_ORDER.filter(function(c){return bycat[c];}).concat(Object.keys(bycat).filter(function(c){return CAT_ORDER.indexOf(c)===-1;}));
+    listEl.innerHTML = order.map(function(cat){
+      var ci=bycat[cat];
+      var open=ci.filter(function(i){return !i.checked;}).length;
+      var rows=ci.map(function(item){
+        var isStamm=Object.values(eStamm).some(function(s){return s.name.toLowerCase()===item.name.toLowerCase();});
+        return '<div class="item'+(item.checked?' done':'')+'" data-id="'+item.id+'">'
+          +'<div class="cb"><span class="cbtick">✓</span></div>'
+          +'<div class="iinfo"><div class="iname">'+esc(item.name)+'</div>'
+          +(item.by?'<div class="imeta">von '+esc(item.by)+'</div>':'')+'</div>'
+          +'<div class="ibtns">'
+          +'<button class="istar'+(isStamm?' on':'')+'" data-id="'+item.id+'" data-name="'+esc(item.name)+'" data-cat="'+esc(item.cat)+'">⭐</button>'
+          +'<button class="idel" data-id="'+item.id+'">×</button>'
+          +'</div></div>';
+      }).join('');
+      return '<div class="catheader"><span>'+(CAT_ICON[cat]||'📦')+' '+cat+'</span><span style="color:#ccc;font-size:11px">'+open+'/'+ci.length+'</span></div>'+rows;
+    }).join('');
+
+    listEl.querySelectorAll('.item').forEach(function(el){
+      var id=el.dataset.id;
+      el.querySelector('.cb').addEventListener('click',function(e){e.stopPropagation();if(eItems[id])db.ref('lists/'+currentListId+'/items/'+id).update({checked:!eItems[id].checked});});
+      el.querySelector('.iinfo').addEventListener('click',function(){if(eItems[id])db.ref('lists/'+currentListId+'/items/'+id).update({checked:!eItems[id].checked});});
+      el.querySelector('.idel').addEventListener('click',function(e){e.stopPropagation();db.ref('lists/'+currentListId+'/items/'+id).remove();});
+      el.querySelector('.istar').addEventListener('click',function(e){
+        e.stopPropagation();
+        var name=this.dataset.name, cat=this.dataset.cat;
+        var isStamm=Object.values(eStamm).some(function(s){return s.name.toLowerCase()===name.toLowerCase();});
+        if (isStamm) {
+          var key=Object.keys(eStamm).find(function(k){return eStamm[k].name.toLowerCase()===name.toLowerCase();});
+          if(key) db.ref('lists/'+currentListId+'/stamm/'+key).remove();
+          showToast('"'+name+'" aus Stamm entfernt');
+        } else {
+          db.ref('lists/'+currentListId+'/stamm').push({name:name,cat:cat});
+          showToast('"'+name+'" als Stammartikel gespeichert ⭐');
+        }
+      });
+    });
+  }
+
+  /* ==================================================
+     TO-DO LISTE
+     ================================================== */
+  function openTodo(listId) {
+    tFilter = 'alle';
+    document.getElementById('clearbtn').style.display = '';
+    document.getElementById('resetbtn').style.display = '';
+    document.getElementById('stammbtn').style.display = 'none';
+
+    if (unsubItems) unsubItems();
+    var todosRef = db.ref('lists/'+listId+'/todos');
+    var offTodos = todosRef.on('value', function(s) { tItems=s.val()||{}; renderTList(); });
+    unsubItems = function() { todosRef.off('value', offTodos); };
+
+    document.querySelectorAll('[data-tf]').forEach(function(c){
+      c.onclick=function(){
+        tFilter=this.dataset.tf;
+        document.querySelectorAll('[data-tf]').forEach(function(x){x.classList.remove('on');});
+        this.classList.add('on');
+        renderTList();
+      };
+    });
+    document.querySelectorAll('[data-tf]').forEach(function(c){c.classList.remove('on');});
+    document.querySelector('[data-tf="alle"]').classList.add('on');
+
+    document.getElementById('t-addbtn').onclick = function(){addTItem(listId);};
+    document.getElementById('t-newinput').onkeydown = function(e){if(e.key==='Enter')addTItem(listId);};
+
+    document.getElementById('clearbtn').onclick = function(){
+      var del=Object.keys(tItems).filter(function(k){return tItems[k].checked;});
+      if(!del.length){showToast('Keine erledigten Aufgaben');return;}
+      var u={};
+      del.forEach(function(k){u['lists/'+listId+'/todos/'+k]=null;});
+      dotSync(); db.ref('/').update(u);
+      showToast(del.length+' Aufgaben gelöscht');
+    };
+    document.getElementById('resetbtn').onclick = function(){
+      var u={};
+      Object.keys(tItems).forEach(function(k){u['lists/'+listId+'/todos/'+k+'/checked']=false;});
+      dotSync(); db.ref('/').update(u);
+      showToast('Alle zurückgesetzt');
+    };
+  }
+
+  function addTItem(listId) {
+    var name=document.getElementById('t-newinput').value.trim();
+    if (!name) return;
+    var minOrder=0;
+    Object.values(tItems).forEach(function(t){if((t.order||0)<minOrder)minOrder=(t.order||0);});
+    dotSync();
+    db.ref('lists/'+listId+'/todos').push({name:name,checked:false,by:myName,order:minOrder-1,ts:Date.now()});
+    document.getElementById('t-newinput').value='';
+    document.getElementById('t-newinput').focus();
+  }
+
+  function renderTList() {
+    var listEl=document.getElementById('t-list');
+    var all=Object.keys(tItems).map(function(id){return Object.assign({id:id},tItems[id]);}).sort(function(a,b){
+      if(a.checked!==b.checked)return a.checked?1:-1;
+      var oa=a.order!==undefined?a.order:a.ts||0, ob=b.order!==undefined?b.order:b.ts||0;
+      return oa-ob;
+    });
+    var visible=all;
+    if(tFilter==='offen')    visible=all.filter(function(i){return !i.checked;});
+    if(tFilter==='erledigt') visible=all.filter(function(i){return  i.checked;});
+    if(!visible.length){listEl.innerHTML='<div class="empty">'+(tFilter==='erledigt'?'Noch nichts erledigt.':'🎉 Keine offenen Aufgaben!')+'</div>';return;}
+    listEl.innerHTML=visible.map(function(item){
+      return '<div class="item'+(item.checked?' done':'')+'" data-id="'+item.id+'">'
+        +'<span class="drag-handle">☰</span>'
+        +'<div class="cb"><span class="cbtick">✓</span></div>'
+        +'<div class="iinfo"><div class="iname">'+esc(item.name)+'</div>'
+        +(item.by?'<div class="imeta">von '+esc(item.by)+'</div>':'')
+        +'</div>'
+        +'<button class="idel" data-id="'+item.id+'">×</button>'
+        +'</div>';
+    }).join('');
+    listEl.querySelectorAll('.item').forEach(function(el){
+      var id=el.dataset.id;
+      setupDrag(el,id,listEl);
+      el.querySelector('.cb').addEventListener('click',function(e){e.stopPropagation();if(tItems[id])db.ref('lists/'+currentListId+'/todos/'+id).update({checked:!tItems[id].checked});});
+      el.querySelector('.iinfo').addEventListener('click',function(){if(tItems[id])db.ref('lists/'+currentListId+'/todos/'+id).update({checked:!tItems[id].checked});});
+      el.querySelector('.idel').addEventListener('click',function(e){e.stopPropagation();db.ref('lists/'+currentListId+'/todos/'+id).remove();});
+    });
+  }
+
+  /* ---- Drag & Drop ---- */
+  function setupDrag(el,id,listEl) {
+    var handle=el.querySelector('.drag-handle');
+    handle.setAttribute('draggable',true);
+    handle.addEventListener('dragstart',function(e){dragId=id;setTimeout(function(){el.classList.add('dragging');},0);e.dataTransfer.effectAllowed='move';});
+    handle.addEventListener('dragend',function(){
+      el.classList.remove('dragging');
+      listEl.querySelectorAll('.item').forEach(function(i){i.classList.remove('drag-over');});
+      if(dragId&&dragOver&&dragId!==dragOver)commitOrder();
+      dragId=null;dragOver=null;
+    });
+    el.addEventListener('dragover',function(e){
+      e.preventDefault();
+      if(dragId&&dragId!==id){
+        listEl.querySelectorAll('.item').forEach(function(i){i.classList.remove('drag-over');});
+        el.classList.add('drag-over');dragOver=id;
+      }
+    });
+    handle.addEventListener('touchstart',function(){dragId=id;el.classList.add('dragging');},{passive:true});
+    handle.addEventListener('touchmove',function(e){
+      e.preventDefault();
+      var y=e.touches[0].clientY;
+      listEl.querySelectorAll('.item:not(.dragging)').forEach(function(item){
+        var r=item.getBoundingClientRect();
+        if(y>=r.top&&y<=r.bottom){listEl.querySelectorAll('.item').forEach(function(i){i.classList.remove('drag-over');});item.classList.add('drag-over');dragOver=item.dataset.id;}
+      });
+    },{passive:false});
+    handle.addEventListener('touchend',function(){
+      el.classList.remove('dragging');
+      listEl.querySelectorAll('.item').forEach(function(i){i.classList.remove('drag-over');});
+      if(dragId&&dragOver&&dragId!==dragOver)commitOrder();
+      dragId=null;dragOver=null;
+    });
+  }
+
+  function commitOrder() {
+    var ids=[];
+    document.getElementById('t-list').querySelectorAll('.item').forEach(function(el){ids.push(el.dataset.id);});
+    var fi=ids.indexOf(dragId),ti=ids.indexOf(dragOver);
+    if(fi===-1||ti===-1)return;
+    ids.splice(fi,1);ids.splice(ti,0,dragId);
+    var u={};
+    ids.forEach(function(id,i){u['lists/'+currentListId+'/todos/'+id+'/order']=i;});
+    dotSync();db.ref('/').update(u);
+  }
+
+  /* ---- Neue Liste Modal ---- */
+  var selectedEmoji='🛒', selectedType='einkauf';
+
+  function openNewListModal() {
+    selectedEmoji='🛒'; selectedType='einkauf';
+    document.getElementById('nl-name').value='';
+    var eg=document.getElementById('nl-emojis');
+    eg.innerHTML=EMOJIS.map(function(e){return '<button class="emoji-btn'+(e===selectedEmoji?' on':'')+'" data-e="'+e+'">'+e+'</button>';}).join('');
+    eg.querySelectorAll('.emoji-btn').forEach(function(btn){
+      btn.onclick=function(){selectedEmoji=this.dataset.e;eg.querySelectorAll('.emoji-btn').forEach(function(b){b.classList.remove('on');});this.classList.add('on');};
+    });
+    document.querySelectorAll('.type-btn').forEach(function(btn){
+      btn.classList.toggle('on',btn.dataset.t===selectedType);
+      btn.onclick=function(){selectedType=this.dataset.t;document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('on');});this.classList.add('on');};
+    });
+    document.getElementById('newListOverlay').classList.add('open');
+    setTimeout(function(){document.getElementById('nl-name').focus();},100);
+  }
+
+  document.getElementById('nl-cancel').onclick=function(){document.getElementById('newListOverlay').classList.remove('open');};
+  document.getElementById('nl-ok').onclick=function(){
+    var name=document.getElementById('nl-name').value.trim();
+    if(!name){showToast('Bitte einen Namen eingeben');return;}
+    dotSync();
+    listsRef.push({name:name,icon:selectedEmoji,type:selectedType,ts:Date.now()});
+    document.getElementById('newListOverlay').classList.remove('open');
+    showToast('"'+name+'" erstellt');
+  };
+  document.getElementById('nl-name').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('nl-ok').click();});
+
+  /* ---- Liste löschen (mit Bestätigung) ---- */
+  var deleteId=null;
+  function confirmDelete(id) {
+    deleteId=id;
+    var l=allLists[id];
+    document.getElementById('confirm-text').textContent='"'+(l?l.name:'')+'" und alle Einträge werden unwiderruflich gelöscht.';
+    document.getElementById('confirmdialog').classList.add('show');
+  }
+  document.getElementById('confirm-no').onclick=function(){document.getElementById('confirmdialog').classList.remove('show');deleteId=null;};
+  document.getElementById('confirm-yes').onclick=function(){
+    if(deleteId){dotSync();db.ref('lists/'+deleteId).remove();showToast('Liste gelöscht');}
+    document.getElementById('confirmdialog').classList.remove('show');deleteId=null;
+  };
+
+  /* ---- Toast ---- */
+  var toastTimer;
+  function showToast(msg){
+    var t=document.getElementById('toast');
+    t.textContent=msg;t.classList.add('show');
+    clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.classList.remove('show');},2500);
+  }
+
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+} // end startApp
+</script>
+</body>
+</html>
