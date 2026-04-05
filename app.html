@@ -118,7 +118,7 @@ header h1 { font-size: 17px; font-weight: 600; display: flex; align-items: cente
 .item.done .cbtick { display: block; }
 .iinfo { flex: 1; min-width: 0; cursor: pointer; }
 .iname { font-size: 15px; }
-.imeta { font-size: 11px; color: #bbb; margin-top: 2px; }
+.imeta { font-size: 11px; color: #bbb; margin-top: 3px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .ibtns { display: flex; gap: 4px; align-items: center; }
 .istar { background: none; border: none; font-size: 16px; cursor: pointer; padding: 3px 4px; line-height: 1; opacity: .25; flex-shrink: 0; }
 .istar.on { opacity: 1; }
@@ -827,11 +827,13 @@ function startApp() {
       return '<div class="item'+(item.checked?' done':'')+'" data-id="'+item.id+'">'
         +'<span class="drag-handle">☰</span>'
         +'<div class="cb"><span class="cbtick">✓</span></div>'
-        +'<div class="iinfo"><div class="iname">'+esc(item.name)+'</div>'
-        +'<div class="imeta">'
-        +(item.by?'<span>von '+esc(item.by)+'</span>':'')
-        +assigneeBadge
-        +'</div></div>'
+        +'<div class="iinfo">'
+          +'<div class="iname">'+esc(item.name)+'</div>'
+          +'<div class="imeta">'
+            +(item.by?'<span>von '+esc(item.by)+'</span>':'')
+            +assigneeBadge
+          +'</div>'
+        +'</div>'
         +'<button class="idel" data-id="'+item.id+'">×</button>'
         +'</div>';
     }).join('');
