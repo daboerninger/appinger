@@ -149,6 +149,10 @@ header h1 { font-size: 17px; font-weight: 600; display: flex; align-items: cente
 .pperson.none { border-style: dashed; }
 .pperson:active { opacity: .7; }
 .passign { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: #e8f0eb; color: #3a6248; border-radius: 10px; padding: 2px 7px; margin-top: 2px; }
+.passign-btn { border: none; cursor: pointer; font-family: inherit; }
+.passign-btn:active { opacity: .7; }
+.passign-add { display: inline-flex; align-items: center; font-size: 11px; background: none; border: 1px dashed #ccc; border-radius: 10px; padding: 2px 7px; color: #bbb; cursor: pointer; font-family: inherit; }
+.passign-add:active { background: #f0f0eb; color: #888; }
 .passign.overdue { background: #fff0e8; color: #a05020; }
 
 /* Filter-Person chips */
@@ -823,7 +827,9 @@ function startApp() {
     if(tPersonFilter)        visible=visible.filter(function(i){return i.assignee===tPersonFilter;});
     if(!visible.length){listEl.innerHTML='<div class="empty">'+(tPersonFilter?'Keine Aufgaben für '+esc(tPersonFilter)+'.':tFilter==='erledigt'?'Noch nichts erledigt.':'🎉 Keine offenen Aufgaben!')+'</div>';return;}
     listEl.innerHTML=visible.map(function(item){
-      var assigneeBadge = item.assignee ? '<span class="passign">👤 '+esc(item.assignee)+'</span>' : '';
+      var assigneeBadge = item.assignee
+        ? '<button class="passign passign-btn" data-id="'+item.id+'">👤 '+esc(item.assignee)+'</button>'
+        : '<button class="passign-add passign-btn" data-id="'+item.id+'">+ Person</button>';
       return '<div class="item'+(item.checked?' done':'')+'" data-id="'+item.id+'">'
         +'<span class="drag-handle">☰</span>'
         +'<div class="cb"><span class="cbtick">✓</span></div>'
@@ -843,6 +849,68 @@ function startApp() {
       el.querySelector('.cb').addEventListener('click',function(e){e.stopPropagation();if(tItems[id])db.ref('lists/'+currentListId+'/todos/'+id).update({checked:!tItems[id].checked});});
       el.querySelector('.iinfo').addEventListener('click',function(){if(tItems[id])db.ref('lists/'+currentListId+'/todos/'+id).update({checked:!tItems[id].checked});});
       el.querySelector('.idel').addEventListener('click',function(e){e.stopPropagation();db.ref('lists/'+currentListId+'/todos/'+id).remove();});
+
+      // Person zuweisen / wechseln
+      var pbtn = el.querySelector('.passign-btn');
+      if (pbtn) {
+        pbtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          showPersonAssignPicker(id);
+        });
+      }
+    });
+  }
+
+  function showPersonAssignPicker(itemId) {
+    var names = getPersonNames();
+    var current = tItems[itemId] ? tItems[itemId].assignee || '' : '';
+
+    // Optionen zusammenstellen: bekannte Personen + "Niemand" + "Neue Person"
+    var options = [''].concat(names); // '' = Niemand
+    var chosen = null;
+
+    // Einfaches Auswahl-Sheet bauen
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:flex-end;justify-content:center;';
+    var sheet = document.createElement('div');
+    sheet.style.cssText = 'background:#fff;border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;';
+
+    var html = '<div style="font-size:14px;font-weight:600;margin-bottom:14px;">Zuständige Person</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">';
+    html += '<button class="pperson'+(current===''?' on':'')+'" data-pick="">Niemand</button>';
+    names.forEach(function(n) {
+      html += '<button class="pperson'+(current===n?' on':'')+'" data-pick="'+esc(n)+'">'+esc(n)+'</button>';
+    });
+    html += '<button class="pperson none" id="assign-new-person">+ Neue Person</button>';
+    html += '</div>';
+    html += '<button style="width:100%;background:#eee;border:none;border-radius:9px;padding:11px;font-size:14px;cursor:pointer;" id="assign-cancel">Abbrechen</button>';
+    sheet.innerHTML = html;
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+
+    sheet.querySelectorAll('[data-pick]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var pick = this.dataset.pick;
+        if (pick !== current) {
+          db.ref('lists/'+currentListId+'/todos/'+itemId).update({ assignee: pick });
+          if (pick) ensurePerson(pick);
+        }
+        document.body.removeChild(overlay);
+      });
+    });
+    document.getElementById('assign-new-person').addEventListener('click', function() {
+      var name = prompt('Name der Person:');
+      if (!name || !name.trim()) return;
+      name = name.trim();
+      ensurePerson(name);
+      db.ref('lists/'+currentListId+'/todos/'+itemId).update({ assignee: name });
+      document.body.removeChild(overlay);
+    });
+    document.getElementById('assign-cancel').addEventListener('click', function() {
+      document.body.removeChild(overlay);
+    });
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) document.body.removeChild(overlay);
     });
   }
 
